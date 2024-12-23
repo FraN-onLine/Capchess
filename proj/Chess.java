@@ -1,3 +1,4 @@
+// btw added Draw by Insufficient Materials
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,7 +15,7 @@ class Piece {
     private Color color;
     private ImageIcon icon;
     private static BasilioCertifiedHashmap<String, Image> loadedImages = new BasilioCertifiedHashmap<String, Image>();
-    //custom hashmap usage, cache of loaded images
+    //custom hashmap usage, cache of loaded images + other uses of util.Hashmap in later functions
 
     public Piece(Type type, Color color) {
         this.type = type;
@@ -235,7 +236,7 @@ class GUI extends JFrame {
 
 }
 
-// GameController Class
+//this handles the game
 class GameController {
     private Board board;
     private GUI gui;
@@ -247,6 +248,7 @@ class GameController {
     private boolean kingInCheck = false;
     public boolean canCastle = false;
     public static boolean gameStarted = false;
+    private boolean gameover = false;
 
 
     public GameController() {
@@ -259,6 +261,7 @@ class GameController {
     }
 
     public void handleTileClick(int row, int col) {
+        if(gameover) return;
 
         if(!gameStarted) gameStarted = true;
         
@@ -343,6 +346,7 @@ class GameController {
         }
         else {
         checkStalemate(isWhiteTurn ? Piece.Color.WHITE : Piece.Color.BLACK);
+        checkInsuffMats();
         }
 
         canCastle = false;
@@ -473,6 +477,7 @@ class GameController {
         return moves;
     }
 
+    //linear moves involves rooks,bishops and queens
     private List<int[]> getLinearMoves(int row, int col, Piece.Color color, int rowDir, int colDir) {
         List<int[]> moves = new LinkedList<>();
         int r = row + rowDir, c = col + colDir;
@@ -627,6 +632,7 @@ class GameController {
         }
     }
 
+    //following functions checks game critical positions
     private void checkCheckmate(int row, int col, Piece.Color kingColor, Piece king){
         selectedRow = row; selectedCol = col;
         validMoves = getValidMoves(row, col, king);
@@ -666,8 +672,6 @@ class GameController {
 
         }
     }
-
-    
 
 
 private void checkStalemate(Piece.Color kingColor){
@@ -733,6 +737,47 @@ private void checkStalemate(Piece.Color kingColor){
     }
 }
 
+//insufficient material if only 1 bishop or 1 knight is left in board
+//pawn,rooks and queens can still checkmate, 2 bishops, 2 knights and bishop+knight can still check
+private void checkInsuffMats(){
+    int bishopsInPlay = 0;
+    int knightsInPlay = 0;
+
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 8; col++) {
+            Piece piece = board.getPiece(row, col);
+           if(piece != null && (piece.getType() == Piece.Type.PAWN || piece.getType() == Piece.Type.ROOK || piece.getType() == Piece.Type.QUEEN)) return;
+            else if (piece != null && piece.getType() == Piece.Type.KNIGHT) knightsInPlay++;
+            else if (piece != null && piece.getType() == Piece.Type.BISHOP) bishopsInPlay++;
+        }
+    }
+
+    if((bishopsInPlay <= 1 && knightsInPlay == 0) || (bishopsInPlay == 0 && knightsInPlay <= 1)){
+        gameover = true;
+        
+        System.out.println("NO CHECKMATE CAN BE PLAYED, INSUFFICIENT MATERIALS");
+        gui.updateLabel("DRAW!");
+        JOptionPane.showMessageDialog(gui, "1/2 INSUFFICIENT MATERIALS");
+        
+        //looked back at 113 for these
+        int confirm = JOptionPane.showConfirmDialog(gui, "1/2 DRAW, Reset Board?", "Draw" , JOptionPane.YES_NO_CANCEL_OPTION );
+        if (confirm == JOptionPane.YES_OPTION){
+            board = new Board();
+            gui.updateLabel("Turn: White");
+            updateBoard();
+            resetHighlights();
+            isWhiteTurn = true;
+            selectedCol = -1;
+            selectedRow = -1;
+            whiteKingMoved = false;
+            blackKingMoved = false;
+            gameover = false;
+        }
+
+    } else return;
+
+}
+
 private boolean canCastle(Piece.Color color, int kingRow, int kingCol, boolean isKingside) {
     int rookCol = isKingside ? 7 : 0;
     int step = isKingside ? 1 : -1; //in which direction the king is going to, 1 to the right, -1 to the left
@@ -787,6 +832,7 @@ private boolean canCastle(Piece.Color color, int kingRow, int kingCol, boolean i
             selectedRow = -1;
             whiteKingMoved = false;
             blackKingMoved = false;
+            gameover = false;
             gui.updateLabel("Turn: " + (isWhiteTurn ? "White" : "Black"));
             updateBoard();
             if(!board.capturedPieces.isEmpty())
@@ -800,7 +846,7 @@ private boolean canCastle(Piece.Color color, int kingRow, int kingCol, boolean i
                 isWhiteTurn = true;
                 selectedCol = -1;
                 selectedRow = -1;
-            }
+            }else
             JOptionPane.showMessageDialog(gui, "Cannot undo any further..");
         }
     }
